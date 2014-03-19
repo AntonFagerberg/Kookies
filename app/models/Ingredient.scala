@@ -5,29 +5,29 @@ import play.api.Play.current
 import anorm._
 import anorm.SqlParser._
 
-case class Customer(
+case class Ingredient(
   name: String,
-  address: String
+  quantity: Long
 )
 
-object Customer {
-  val customerParser =
-    get[String]("customer.name") ~
-    get[String]("customer.address") map {
-      case name ~ address => Customer(name, address)
+object Ingredient {
+  val ingredientParser =
+    get[String]("ingredient.name") ~
+    get[Long]("ingredient.quantity") map {
+      case name ~ quantity => Ingredient(name, quantity)
     }
 
-  def all(): Seq[Customer] = {
+  def all(): Seq[Ingredient] = {
     DB.withConnection { implicit connection =>
       SQL(
         """
           |SELECT
           | *
           |FROM
-          | customer
+          | ingredient
         """.stripMargin
       ).as(
-        customerParser *
+        ingredientParser *
       )
     }
   }

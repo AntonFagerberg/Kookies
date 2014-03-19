@@ -6,7 +6,7 @@ CREATE TABLE unit(
 
 INSERT INTO `unit` (`abbreviation`, `name`)
   VALUES
-  ('cl','centiliters'),
+  ('ml','milliliters'),
   ('g','grams');
 
 # --- !Downs

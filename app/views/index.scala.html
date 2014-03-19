@@ -1,12 +1,17 @@
+@(palletForm: Form[String], blockForm: Form[Block], searchForm: Form[PalletSearch], message: Option[String] = None)
 @import org.joda.time.LocalDateTime
 
 @main {
+    @message.map { msg =>
+        <br>
+        <div class="alert alert-info"><b>Notice: </b>@msg</div>
+    }
     <h1>Create pallet</h1>
 
     @helper.form(routes.Application.createPallet()) {
-        <select name="productName">
-            @for(product <- models.Product.all()) {
-                <option>@product.name</option>
+        <select name="productName" @if(palletForm.hasErrors){style="border-color: red;"}>
+            @for(product <- Product.all()) {
+                <option @if(palletForm("productName").value == Some(product.name)){selected=selected}>@product.name</option>
             }
         </select>
         <input type="submit" value="Create">
@@ -16,34 +21,113 @@
     <h1>Block product</h1>
     @helper.form(routes.Application.createBlock()) {
         <select name="productName">
-            @for(product <- models.Product.all()) {
-                <option>@product.name</option>
+            @for(product <- Product.all()) {
+                <option @if(blockForm("productName").value == Some(product.name)){selected=selected}>@product.name</option>
             }
         </select>
-        <input type="text" name="start" value="@LocalDateTime.now.toString("YYYY-MM-dd HH:mm")">
-        <input type="text" name="end" value="@LocalDateTime.now.toString("YYYY-MM-dd HH:mm")">
+        <input
+            @if(blockForm.error("start").isDefined || blockForm.hasGlobalErrors) {style="border-color: red;"}
+            type="text"
+            name="start"
+            value="@blockForm("start").value.getOrElse(LocalDateTime.now.toString("YYYY-MM-dd HH:mm"))"
+        >
+        <input
+            @if(blockForm.error("end").isDefined || blockForm.hasGlobalErrors) {style="border-color: red;"}
+            type="text"
+            name="end"
+            value="@blockForm("end").value.getOrElse(LocalDateTime.now.plusMinutes(10).toString("YYYY-MM-dd HH:mm"))"
+        >
         <input type="submit" value="Save">
     }
-
-    <h2>Blocked products</h2>
+    <br >
     @for(block <- Block.all()) {
-        @block.productName (@block.start.toString("YYYY-MM-dd HH:mm") until @block.end.toString("YYYY-MM-dd HH:mm"))<br>
+        <b>@block.start.toString("YYYY-MM-dd HH:mm") until @block.end.toString("YYYY-MM-dd HH:mm")</b><br>
+        @block.productName <br><br>
     }
+
+    <a onclick="$('#block').toggle()">Click to see affected pallets</a><br>
+    <div id="block" style="display: none;">
+        @for(pallet <- Pallet.search(PalletSearch()) if pallet.blocked) {
+            <br>
+            Id-number: @pallet.id <br>
+            Product: @pallet.product.name <br>
+            Creation time: @pallet.timestamp.toString("YYYY-MM-dd HH:mm:ss")<br>
+        }
+    </div>
 
 
     <hr>
     <h1>Created pallets</h1>
-    @for(pallet <- models.Pallet.all()) {
-        Id-number: @pallet.id <br>
-        Product: @pallet.product.name <br>
-        Creation time: @pallet.timestamp.toString("YYYY-MM-dd HH:mm:ss") <br>
-        Order: @pallet.order.map { order =>
-          s"[${order.id}] by ${order.customerName}"
-        }.getOrElse("Not connected to an order yet...")<br>
-        @if(pallet.blocked) {
-            <b>Warning: pallet is blocked!</b><br>
-        }
-        <br><br>
+    <i><b>Testdata:</b> Det finns ordrar gjorda av Bjudkakor AB, Finkakor AB och Gästkakor AB. Det finns pallar skapade för Berliner, Tango och Nut ring. Nut ring har spärrade pallar.</i>
+    <br>
+    <br>
+    @helper.form(routes.Application.search()) {
+        <b>Id-nummer eller tomt:</b><br>
+        <input
+            type="text"
+            name="palletId"
+            value="@searchForm("palletId").value"
+            @if(searchForm.error("palletId").isDefined) {style="border-color: red;"}
+        >
+        <select name="productName" @if(searchForm("productName").hasErrors){style="border-color: red;"}>
+            <option value="">All products</option>
+            @for(product <- Product.all()) {
+                <option @if(searchForm("productName").value == Some(product.name)){selected=selected}>@product.name</option>
+            }
+        </select>
+        <select name="customerName" @if(searchForm("customerName").hasErrors){style="border-color: red;"}>
+            <option value="">All customers</option>
+            @for(customer <- Customer.all()) {
+                <option @if(searchForm("customerName").value == Some(customer.name)){selected=selected}>@customer.name</option>
+            }
+        </select>
+        <input
+            @if(searchForm.error("start").isDefined || searchForm.hasGlobalErrors) {style="border-color: red;"}
+            type="text"
+            name="start"
+            value="@searchForm("start").value.getOrElse(LocalDateTime.now.minusDays(30).toString("YYYY-MM-dd HH:mm"))"
+        >
+        <input
+            @if(searchForm.error("end").isDefined || searchForm.hasGlobalErrors) {style="border-color: red;"}
+            type="text"
+            name="end"
+            value="@searchForm("end").value.getOrElse(LocalDateTime.now.plusDays(30).toString("YYYY-MM-dd HH:mm"))"
+        >
+        <input type="submit" value="Search">
     }
 
+    @if(!searchForm.hasErrors && searchForm.value.isDefined) {
+        <br>
+        @for(pallet <- models.Pallet.search(searchForm.value.get)) {
+            Id-number: @pallet.id <br>
+            Product: @pallet.product.name <br>
+            Creation time: @pallet.timestamp.toString("YYYY-MM-dd HH:mm:ss") <br>
+            Location: @{
+                if (pallet.order.isDefined) {
+                    if (pallet.order.get.deliveryTimestamp.isDefined) "Delivered"
+                    else "Out for delivery"
+                } else {
+                    "Deep-freeze storage"
+                }
+            }<br>
+            Order number: @pallet.order.map { order =>
+              @order.id <br>
+              Customer: @order.customer.name (@order.customer.address)<br>
+              Requested delivery: @order.expectingDate <br>
+              Delivery date: @order.deliveryTimestamp.map(_.toString("YYYY-MM-dd HH:mm:ss")).getOrElse("Not yet delivered...")
+            }.getOrElse("-")<br>
+            @if(pallet.blocked) {
+                <b>Warning: pallet is blocked!</b><br>
+            }
+            <br><br>
+        }
+    }
+
+    <br>
+
+    <hr>
+    <h1>Ingredient overview</h1>
+    @for(ingredient <- Ingredient.all()) {
+        <b>@ingredient.name</b> (@ingredient.quantity g)<br>
+    }
 }
