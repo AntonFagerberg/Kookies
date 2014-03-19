@@ -1,0 +1,49 @@
+@import org.joda.time.LocalDateTime
+
+@main {
+    <h1>Create pallet</h1>
+
+    @helper.form(routes.Application.createPallet()) {
+        <select name="productName">
+            @for(product <- models.Product.all()) {
+                <option>@product.name</option>
+            }
+        </select>
+        <input type="submit" value="Create">
+    }
+
+    <hr>
+    <h1>Block product</h1>
+    @helper.form(routes.Application.createBlock()) {
+        <select name="productName">
+            @for(product <- models.Product.all()) {
+                <option>@product.name</option>
+            }
+        </select>
+        <input type="text" name="start" value="@LocalDateTime.now.toString("YYYY-MM-dd HH:mm")">
+        <input type="text" name="end" value="@LocalDateTime.now.toString("YYYY-MM-dd HH:mm")">
+        <input type="submit" value="Save">
+    }
+
+    <h2>Blocked products</h2>
+    @for(block <- Block.all()) {
+        @block.productName (@block.start.toString("YYYY-MM-dd HH:mm") until @block.end.toString("YYYY-MM-dd HH:mm"))<br>
+    }
+
+
+    <hr>
+    <h1>Created pallets</h1>
+    @for(pallet <- models.Pallet.all()) {
+        Id-number: @pallet.id <br>
+        Product: @pallet.product.name <br>
+        Creation time: @pallet.timestamp.toString("YYYY-MM-dd HH:mm:ss") <br>
+        Order: @pallet.order.map { order =>
+          s"[${order.id}] by ${order.customerName}"
+        }.getOrElse("Not connected to an order yet...")<br>
+        @if(pallet.blocked) {
+            <b>Warning: pallet is blocked!</b><br>
+        }
+        <br><br>
+    }
+
+}
